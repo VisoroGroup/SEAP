@@ -41,6 +41,9 @@ export async function registerRoutes(
     }
   });
 
+  // Seed database with sample data
+  await seedDatabase();
+
   // Scraper Trigger Endpoint
   app.post("/api/scrape", async (req, res) => {
     try {
@@ -74,4 +77,79 @@ export async function registerRoutes(
   });
 
   return httpServer;
+}
+
+async function seedDatabase() {
+  const existing = await storage.getTenders();
+  if (existing.length === 0) {
+    const now = new Date();
+    const oneMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
+    const twoMonths = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
+
+    await storage.createTender({
+      noticeNumber: "DA-2025-001234",
+      title: "Servicii de cartografiere și realizare ortofotoplan pentru UAT Comuna Florești",
+      description: "Servicii profesionale de realizare a documentației cadastrale și cartografice pentru întocmirea planurilor urbanistice generale.",
+      authority: "Primăria Comunei Florești",
+      value: "185000",
+      currency: "RON",
+      location: "Cluj",
+      cpvCode: "71354300-7",
+      publicationDate: now,
+      deadline: oneMonth,
+      status: "open",
+      matchedKeyword: "cartografiere",
+      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123456"
+    });
+
+    await storage.createTender({
+      noticeNumber: "DA-2025-001567",
+      title: "Achiziție sistem GIS pentru monitorizarea infrastructurii rutiere județene",
+      description: "Furnizare și implementare sistem informatic geografic (GIS) pentru gestionarea și monitorizarea drumurilor județene.",
+      authority: "Consiliul Județean Timiș",
+      value: "450000",
+      currency: "RON",
+      location: "Timișoara",
+      cpvCode: "48600000-4",
+      publicationDate: now,
+      deadline: twoMonths,
+      status: "open",
+      matchedKeyword: "gis",
+      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123457"
+    });
+
+    await storage.createTender({
+      noticeNumber: "DA-2025-000892",
+      title: "Servicii de realizare hărți digitale pentru planul urbanistic zonal",
+      description: "Elaborarea documentației tehnice și a hărților digitale necesare pentru actualizarea planului urbanistic zonal al municipiului.",
+      authority: "Primăria Municipiului Oradea",
+      value: "95000",
+      currency: "RON",
+      location: "Oradea",
+      cpvCode: "71354100-5",
+      publicationDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
+      deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
+      status: "closed",
+      matchedKeyword: "harta",
+      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123458"
+    });
+
+    await storage.createTender({
+      noticeNumber: "DA-2025-002103",
+      title: "Ortofotoplan digital pentru registrul agricol electronic",
+      description: "Realizarea ortofotoplanului digital de înaltă rezoluție pentru implementarea sistemului electronic de evidență a registrului agricol.",
+      authority: "Agenția pentru Dezvoltare Regională Nord-Vest",
+      value: "720000",
+      currency: "RON",
+      location: "Regiune Nord-Vest",
+      cpvCode: "71355000-1",
+      publicationDate: now,
+      deadline: twoMonths,
+      status: "open",
+      matchedKeyword: "ortofotoplan",
+      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123459"
+    });
+
+    console.log("Database seeded with sample tenders");
+  }
 }
