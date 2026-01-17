@@ -1,8 +1,8 @@
 import { Link } from "wouter";
 import { type Tender } from "@shared/schema";
 import { format } from "date-fns";
-import { hu } from "date-fns/locale";
-import { Calendar, MapPin, Building, Banknote } from "lucide-react";
+import { ro } from "date-fns/locale";
+import { Calendar, MapPin, Building, Banknote, Tag } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
 import { Card, CardContent, CardFooter, CardHeader } from "@/components/ui/card";
 
@@ -18,14 +18,14 @@ export function TenderCard({ tender }: TenderCardProps) {
   };
 
   const statusLabels = {
-    open: "Nyitott",
-    closed: "Lezárt",
-    awarded: "Odaítélt",
+    open: "Deschis",
+    closed: "Închis",
+    awarded: "Atribuit",
   };
 
-  const formattedValue = new Intl.NumberFormat('hu-HU', {
+  const formattedValue = new Intl.NumberFormat('ro-RO', {
     style: 'currency',
-    currency: tender.currency,
+    currency: tender.currency || 'RON',
     maximumFractionDigits: 0
   }).format(Number(tender.value));
 
@@ -34,15 +34,15 @@ export function TenderCard({ tender }: TenderCardProps) {
       <Card className="h-full hover:shadow-lg hover:border-primary/50 transition-all duration-300 overflow-hidden border-border/60 bg-white/50 backdrop-blur-sm">
         <CardHeader className="pb-3 space-y-3">
           <div className="flex items-start justify-between gap-4">
-            <Badge 
-              variant="outline" 
+            <Badge
+              variant="outline"
               className={`${statusColors[tender.status as keyof typeof statusColors]} font-medium border px-2.5 py-0.5`}
             >
               {statusLabels[tender.status as keyof typeof statusLabels] || tender.status}
             </Badge>
             <span className="text-xs text-muted-foreground whitespace-nowrap flex items-center gap-1">
               <Calendar className="w-3 h-3" />
-              {format(new Date(tender.publicationDate || new Date()), "yyyy. MM. dd.", { locale: hu })}
+              {format(new Date(tender.publicationDate || new Date()), "dd.MM.yyyy", { locale: ro })}
             </span>
           </div>
           <h3 className="font-display font-semibold text-lg leading-tight text-foreground group-hover:text-primary transition-colors line-clamp-2">
@@ -55,10 +55,18 @@ export function TenderCard({ tender }: TenderCardProps) {
               <Building className="w-4 h-4 mt-0.5 shrink-0 text-primary/70" />
               <span className="line-clamp-1 font-medium text-foreground/80">{tender.authority}</span>
             </div>
-            <div className="flex items-center gap-2">
-              <MapPin className="w-4 h-4 shrink-0 text-primary/70" />
-              <span>{tender.location}</span>
-            </div>
+            {tender.location && (
+              <div className="flex items-center gap-2">
+                <MapPin className="w-4 h-4 shrink-0 text-primary/70" />
+                <span>{tender.location}</span>
+              </div>
+            )}
+            {tender.matchedKeyword && (
+              <div className="flex items-center gap-2">
+                <Tag className="w-4 h-4 shrink-0 text-green-600" />
+                <span className="text-green-700 font-medium">{tender.matchedKeyword}</span>
+              </div>
+            )}
           </div>
           <div className="pt-2 border-t border-dashed">
             <div className="flex items-center gap-2 font-semibold text-primary">
@@ -67,9 +75,11 @@ export function TenderCard({ tender }: TenderCardProps) {
             </div>
           </div>
         </CardContent>
-        <CardFooter className="pt-0 pb-4 text-xs text-muted-foreground">
-           Határidő: <span className="text-foreground ml-1 font-medium">{format(new Date(tender.deadline), "yyyy. MM. dd.", { locale: hu })}</span>
-        </CardFooter>
+        {tender.deadline && (
+          <CardFooter className="pt-0 pb-4 text-xs text-muted-foreground">
+            Termen limită: <span className="text-foreground ml-1 font-medium">{format(new Date(tender.deadline), "dd.MM.yyyy", { locale: ro })}</span>
+          </CardFooter>
+        )}
       </Card>
     </Link>
   );

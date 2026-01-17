@@ -20,7 +20,7 @@ export async function registerRoutes(
   app.get(api.tenders.get.path, async (req, res) => {
     const tender = await storage.getTender(Number(req.params.id));
     if (!tender) {
-      return res.status(404).json({ message: 'Tender not found' });
+      return res.status(404).json({ message: 'Achiziția nu a fost găsită' });
     }
     res.json(tender);
   });
@@ -41,115 +41,126 @@ export async function registerRoutes(
     }
   });
 
-  // Seed database with sample data
-  await seedDatabase();
-
-  // Scraper Trigger Endpoint
+  // Scraper Trigger Endpoint - scrape today
   app.post("/api/scrape", async (req, res) => {
     try {
       const today = new Date().toISOString().split('T')[0];
       const results = await scraper.scrapeDay(today);
-      
-      const saved = [];
-      for (const item of results) {
-        const tender = await storage.upsertTender({
-          noticeNumber: item.publicNoticeNo,
-          title: item.directAcquisitionName,
-          description: item.directAcquisitionDescription || "",
-          authority: item.contractingAuthorityName,
-          value: item.closingValue.toString(),
-          currency: "RON",
-          cpvCode: item.cpvCode,
-          publicationDate: new Date(item.publicationDate),
-          status: "closed", // ID 7 is usually closed/awarded
-          matchedKeyword: item.matchedKeyword,
-          link: `https://e-licitatie.ro/pub/direct-acquisition/view/${item.directAcquisitionId}`,
-          contractType: item.sysAcquisitionContractType?.text
-        });
-        saved.push(tender);
+
+      const saved = await saveTenders(results);
+
+      res.json({ message: `S-au salvat ${saved.length} achiziții noi`, count: saved.length });
+    } catch (error) {
+      console.error("Eroare la scraping:", error);
+      res.status(500).json({ message: "Eroare la preluarea datelor SEAP" });
+    }
+  });
+
+  // Scrape a specific date range (for historical data like 2025)
+  app.post("/api/scrape/range", async (req, res) => {
+    try {
+      const { startDate, endDate } = req.body;
+
+      if (!startDate || !endDate) {
+        return res.status(400).json({ message: "startDate și endDate sunt obligatorii" });
       }
 
-      res.json({ message: `Scraped and saved ${saved.length} tenders`, count: saved.length });
+      console.log(`=== Începe scraping istoric: ${startDate} - ${endDate} ===`);
+
+      const start = new Date(startDate);
+      const end = new Date(endDate);
+      let totalSaved = 0;
+      let currentDate = new Date(start);
+
+      while (currentDate <= end) {
+        const dateStr = currentDate.toISOString().split('T')[0];
+        console.log(`Procesare: ${dateStr}`);
+
+        try {
+          const results = await scraper.scrapeDay(dateStr);
+          const saved = await saveTenders(results);
+          totalSaved += saved.length;
+          console.log(`  -> ${saved.length} achiziții salvate`);
+        } catch (dayError) {
+          console.error(`  -> Eroare pentru ${dateStr}:`, dayError);
+        }
+
+        // Move to next day
+        currentDate.setDate(currentDate.getDate() + 1);
+
+        // Rate limiting between days
+        await new Promise(resolve => setTimeout(resolve, 1000));
+      }
+
+      console.log(`=== Scraping istoric finalizat: ${totalSaved} achiziții salvate ===`);
+      res.json({
+        message: `Scraping istoric finalizat`,
+        totalSaved,
+        startDate,
+        endDate
+      });
     } catch (error) {
-      console.error("Scrape error:", error);
-      res.status(500).json({ message: "Failed to scrape SEAP" });
+      console.error("Eroare la scraping istoric:", error);
+      res.status(500).json({ message: "Eroare la preluarea datelor istorice SEAP" });
     }
+  });
+
+  // Clear all tenders (useful before loading fresh data)
+  app.delete("/api/tenders/all", async (req, res) => {
+    try {
+      await storage.clearAllTenders();
+      res.json({ message: "Toate achizițiile au fost șterse" });
+    } catch (error) {
+      console.error("Eroare la ștergere:", error);
+      res.status(500).json({ message: "Eroare la ștergerea datelor" });
+    }
+  });
+
+  // Stats endpoint
+  app.get("/api/stats", async (req, res) => {
+    const tenders = await storage.getTenders();
+    const totalValue = tenders.reduce((sum, t) => sum + Number(t.value || 0), 0);
+
+    const keywordStats: Record<string, number> = {};
+    tenders.forEach(t => {
+      if (t.matchedKeyword) {
+        keywordStats[t.matchedKeyword] = (keywordStats[t.matchedKeyword] || 0) + 1;
+      }
+    });
+
+    res.json({
+      totalTenders: tenders.length,
+      totalValue,
+      keywordStats,
+      currency: "RON"
+    });
   });
 
   return httpServer;
 }
 
-async function seedDatabase() {
-  const existing = await storage.getTenders();
-  if (existing.length === 0) {
-    const now = new Date();
-    const oneMonth = new Date(now.getTime() + 30 * 24 * 60 * 60 * 1000);
-    const twoMonths = new Date(now.getTime() + 60 * 24 * 60 * 60 * 1000);
-
-    await storage.createTender({
-      noticeNumber: "DA-2025-001234",
-      title: "Servicii de cartografiere și realizare ortofotoplan pentru UAT Comuna Florești",
-      description: "Servicii profesionale de realizare a documentației cadastrale și cartografice pentru întocmirea planurilor urbanistice generale.",
-      authority: "Primăria Comunei Florești",
-      value: "185000",
-      currency: "RON",
-      location: "Cluj",
-      cpvCode: "71354300-7",
-      publicationDate: now,
-      deadline: oneMonth,
-      status: "open",
-      matchedKeyword: "cartografiere",
-      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123456"
-    });
-
-    await storage.createTender({
-      noticeNumber: "DA-2025-001567",
-      title: "Achiziție sistem GIS pentru monitorizarea infrastructurii rutiere județene",
-      description: "Furnizare și implementare sistem informatic geografic (GIS) pentru gestionarea și monitorizarea drumurilor județene.",
-      authority: "Consiliul Județean Timiș",
-      value: "450000",
-      currency: "RON",
-      location: "Timișoara",
-      cpvCode: "48600000-4",
-      publicationDate: now,
-      deadline: twoMonths,
-      status: "open",
-      matchedKeyword: "gis",
-      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123457"
-    });
-
-    await storage.createTender({
-      noticeNumber: "DA-2025-000892",
-      title: "Servicii de realizare hărți digitale pentru planul urbanistic zonal",
-      description: "Elaborarea documentației tehnice și a hărților digitale necesare pentru actualizarea planului urbanistic zonal al municipiului.",
-      authority: "Primăria Municipiului Oradea",
-      value: "95000",
-      currency: "RON",
-      location: "Oradea",
-      cpvCode: "71354100-5",
-      publicationDate: new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000),
-      deadline: new Date(now.getTime() + 14 * 24 * 60 * 60 * 1000),
-      status: "closed",
-      matchedKeyword: "harta",
-      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123458"
-    });
-
-    await storage.createTender({
-      noticeNumber: "DA-2025-002103",
-      title: "Ortofotoplan digital pentru registrul agricol electronic",
-      description: "Realizarea ortofotoplanului digital de înaltă rezoluție pentru implementarea sistemului electronic de evidență a registrului agricol.",
-      authority: "Agenția pentru Dezvoltare Regională Nord-Vest",
-      value: "720000",
-      currency: "RON",
-      location: "Regiune Nord-Vest",
-      cpvCode: "71355000-1",
-      publicationDate: now,
-      deadline: twoMonths,
-      status: "open",
-      matchedKeyword: "ortofotoplan",
-      link: "https://e-licitatie.ro/pub/direct-acquisition/view/123459"
-    });
-
-    console.log("Database seeded with sample tenders");
+async function saveTenders(results: any[]) {
+  const saved = [];
+  for (const item of results) {
+    try {
+      const tender = await storage.upsertTender({
+        noticeNumber: item.publicNoticeNo,
+        title: item.directAcquisitionName,
+        description: item.directAcquisitionDescription || "",
+        authority: item.contractingAuthorityName,
+        value: item.closingValue?.toString() || "0",
+        currency: "RON",
+        cpvCode: item.cpvCode,
+        publicationDate: new Date(item.publicationDate),
+        status: "closed",
+        matchedKeyword: item.matchedKeyword,
+        link: `https://e-licitatie.ro/pub/direct-acquisition/view/${item.directAcquisitionId}`,
+        contractType: item.sysAcquisitionContractType?.text
+      });
+      saved.push(tender);
+    } catch (err) {
+      console.error(`Eroare la salvarea ${item.publicNoticeNo}:`, err);
+    }
   }
+  return saved;
 }

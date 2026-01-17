@@ -1,12 +1,13 @@
 import { db } from "./db";
 import { tenders, type Tender, type InsertTender } from "@shared/schema";
-import { eq, ilike, or, and } from "drizzle-orm";
+import { eq, ilike, or, and, desc } from "drizzle-orm";
 
 export interface IStorage {
   getTenders(params?: { search?: string, location?: string, status?: string }): Promise<Tender[]>;
   getTender(id: number): Promise<Tender | undefined>;
   createTender(tender: InsertTender): Promise<Tender>;
   upsertTender(tender: InsertTender): Promise<Tender>;
+  clearAllTenders(): Promise<void>;
 }
 
 export class DatabaseStorage implements IStorage {
@@ -17,7 +18,8 @@ export class DatabaseStorage implements IStorage {
       conditions.push(or(
         ilike(tenders.title, `%${params.search}%`),
         ilike(tenders.description, `%${params.search}%`),
-        ilike(tenders.authority, `%${params.search}%`)
+        ilike(tenders.authority, `%${params.search}%`),
+        ilike(tenders.matchedKeyword, `%${params.search}%`)
       ));
     }
 
@@ -29,7 +31,7 @@ export class DatabaseStorage implements IStorage {
       conditions.push(eq(tenders.status, params.status));
     }
 
-    return await db.select().from(tenders).where(and(...conditions)).orderBy(tenders.publicationDate);
+    return await db.select().from(tenders).where(and(...conditions)).orderBy(desc(tenders.publicationDate));
   }
 
   async getTender(id: number): Promise<Tender | undefined> {
@@ -55,6 +57,10 @@ export class DatabaseStorage implements IStorage {
       }
     }
     return this.createTender(insertTender);
+  }
+
+  async clearAllTenders(): Promise<void> {
+    await db.delete(tenders);
   }
 }
 
