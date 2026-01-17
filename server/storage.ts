@@ -1,38 +1,61 @@
-import { type User, type InsertUser } from "@shared/schema";
-import { randomUUID } from "crypto";
-
-// modify the interface with any CRUD methods
-// you might need
+import { db } from "./db";
+import { tenders, type Tender, type InsertTender } from "@shared/schema";
+import { eq, ilike, or, and } from "drizzle-orm";
 
 export interface IStorage {
-  getUser(id: string): Promise<User | undefined>;
-  getUserByUsername(username: string): Promise<User | undefined>;
-  createUser(user: InsertUser): Promise<User>;
+  getTenders(params?: { search?: string, location?: string, status?: string }): Promise<Tender[]>;
+  getTender(id: number): Promise<Tender | undefined>;
+  createTender(tender: InsertTender): Promise<Tender>;
+  upsertTender(tender: InsertTender): Promise<Tender>;
 }
 
-export class MemStorage implements IStorage {
-  private users: Map<string, User>;
+export class DatabaseStorage implements IStorage {
+  async getTenders(params?: { search?: string, location?: string, status?: string }): Promise<Tender[]> {
+    const conditions = [];
 
-  constructor() {
-    this.users = new Map();
+    if (params?.search) {
+      conditions.push(or(
+        ilike(tenders.title, `%${params.search}%`),
+        ilike(tenders.description, `%${params.search}%`),
+        ilike(tenders.authority, `%${params.search}%`)
+      ));
+    }
+
+    if (params?.location) {
+      conditions.push(ilike(tenders.location, `%${params.location}%`));
+    }
+
+    if (params?.status) {
+      conditions.push(eq(tenders.status, params.status));
+    }
+
+    return await db.select().from(tenders).where(and(...conditions)).orderBy(tenders.publicationDate);
   }
 
-  async getUser(id: string): Promise<User | undefined> {
-    return this.users.get(id);
+  async getTender(id: number): Promise<Tender | undefined> {
+    const [tender] = await db.select().from(tenders).where(eq(tenders.id, id));
+    return tender;
   }
 
-  async getUserByUsername(username: string): Promise<User | undefined> {
-    return Array.from(this.users.values()).find(
-      (user) => user.username === username,
-    );
+  async createTender(insertTender: InsertTender): Promise<Tender> {
+    const [tender] = await db.insert(tenders).values(insertTender).returning();
+    return tender;
   }
 
-  async createUser(insertUser: InsertUser): Promise<User> {
-    const id = randomUUID();
-    const user: User = { ...insertUser, id };
-    this.users.set(id, user);
-    return user;
+  async upsertTender(insertTender: InsertTender): Promise<Tender> {
+    // If noticeNumber exists, update; otherwise insert
+    if (insertTender.noticeNumber) {
+      const existing = await db.select().from(tenders).where(eq(tenders.noticeNumber, insertTender.noticeNumber));
+      if (existing.length > 0) {
+        const [updated] = await db.update(tenders)
+          .set(insertTender)
+          .where(eq(tenders.noticeNumber, insertTender.noticeNumber))
+          .returning();
+        return updated;
+      }
+    }
+    return this.createTender(insertTender);
   }
 }
 
-export const storage = new MemStorage();
+export const storage = new DatabaseStorage();
