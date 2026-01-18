@@ -1,17 +1,15 @@
-import { tenders } from "@shared/schema";
-
 // Types based on the Python script's logic
 export interface SeapAcquisition {
   directAcquisitionId: number;
   publicNoticeNo: string;
   directAcquisitionName: string;
   directAcquisitionDescription?: string;
-  contractingAuthorityName: string;
+  contractingAuthorityName?: string;  // Optional - API sometimes returns null
   cpvCode: string;
   closingValue: number;
   publicationDate: string;
   sysAcquisitionContractTypeID: number;
-  sysAcquisitionContractType: { text: string };
+  sysAcquisitionContractType?: { text: string };
 }
 
 export interface SeapApiResponse {
@@ -21,60 +19,59 @@ export interface SeapApiResponse {
 
 const BASE_URL = "https://e-licitatie.ro";
 const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcquisitionList/`;
-const DETAIL_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisition/GetDirectAcquisitionView`;
 
-// Extended keywords list - SIMPLIFIED for better matching
+// ONLY specific keywords - no generic words that cause false positives
 const KEYWORDS = [
-  // Core GIS/Mapping terms (most important)
+  // GIS/Mapping (core business)
   "gis",
+  "sistem gis",
   "cartografiere",
   "ortofotoplan",
-  "harta",
-  "harti",
-  "hartă",
-  "hărți",
-  "topografic",
+  "ortofoto",
+  "hărți digitale",
+  "harti digitale",
+  "harta cadastrala",
+  "hartă cadastrală",
   "topografie",
+  "topografic",
   "cadastru",
   "cadastral",
-  "geospațial",
   "geospatial",
+  "geospațial",
 
-  // Registry terms
-  "registru",
-  "nomenclator",
-  "nomenclatură",
-  "inventariere",
-  "inventar",
+  // Specific registries
+  "registru agricol",
+  "registrul agricol",
+  "registru spatii verzi",
+  "registrul spațiilor verzi",
+  "nomenclator stradal",
 
-  // Urbanism
-  "urbanism",
-  "urbanistic",
-  "pug",
-  "puz",
-  "pud",
+  // Urbanism specific
+  "plan urbanistic",
+  "pug digital",
+  "puz digital",
+  "urbanism digital",
+  "documentatie urbanistica",
+  "documentație urbanistică",
 
-  // Green spaces
-  "spații verzi",
-  "spatii verzi",
-  "spațiu verde",
-  "fond verde",
+  // Green spaces specific
+  "inventariere spatii verzi",
+  "inventariere spații verzi",
+  "evidenta spatii verzi",
+  "evidență spații verzi",
 
-  // Public domain
-  "domeniu public",
-  "patrimoniu",
-  "bunuri publice",
+  // Public domain specific
+  "inventariere domeniu public",
+  "evidenta bunuri publice",
+  "evidență bunuri publice",
 
-  // IT Services
-  "sistem informatic",
-  "digitalizare",
-  "platformă",
-  "platforma",
-  "software",
-  "aplicație",
-  "aplicatie",
+  // IT/Software for public admin
+  "sistem informatic geografic",
+  "platforma gis",
+  "platformă gis",
+  "software gis",
 
-  // Original keywords
+  // Brand names (very specific)
   "rsv",
   "renns"
 ];
@@ -158,9 +155,11 @@ export class SeapScraper {
         const matchedKeyword = keywordInName || keywordInDesc;
 
         if (matchedKeyword) {
+          // Add item with matched keyword and ensure required fields have defaults
           results.push({
             ...item,
-            matchedKeyword
+            matchedKeyword,
+            contractingAuthorityName: item.contractingAuthorityName || "Autoritate necunoscută"
           });
           console.log(`Match: ${item.directAcquisitionName.substring(0, 50)}... (${matchedKeyword})`);
         }
