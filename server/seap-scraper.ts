@@ -6,10 +6,13 @@ export interface SeapAcquisition {
   publicNoticeNo: string;
   directAcquisitionName: string;
   directAcquisitionDescription?: string;
-  contractingAuthorityName?: string;
+  contractingAuthorityName?: string;  // A megrendelő (autoritatea)
+  supplierName?: string;               // A nyertes cég neve
+  supplierId?: number;
   cpvCode: string;
   closingValue: number;
   publicationDate: string;
+  finalizationDate?: string;
   sysAcquisitionContractTypeID: number;
   sysAcquisitionContractType?: { text: string };
 }

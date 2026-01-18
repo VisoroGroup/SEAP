@@ -152,6 +152,56 @@ export async function registerRoutes(
     });
   });
 
+  // CSV Export endpoint - downloads as Excel-compatible file
+  app.get("/api/export/csv", async (req, res) => {
+    try {
+      const tenders = await storage.getTenders();
+
+      // CSV Header - user requested: beszerzés neve, dátum, nyertes cég, összeg
+      const headers = [
+        "Denumire Achiziție",
+        "Data Publicării",
+        "Ofertant (Nyertes)",
+        "Valoare (RON)",
+        "Autoritate Contractantă",
+        "CPV",
+        "Cuvânt Cheie",
+        "Link"
+      ];
+
+      // Convert tenders to CSV rows
+      const rows = tenders.map(t => [
+        `"${(t.title || "").replace(/"/g, '""')}"`,  // Beszerzés neve
+        t.publicationDate ? new Date(t.publicationDate).toLocaleDateString('ro-RO') : "",  // Dátum
+        `"${((t as any).supplier || "").replace(/"/g, '""')}"`,  // Nyertes cég
+        t.value || "0",  // Összeg
+        `"${(t.authority || "").replace(/"/g, '""')}"`,  // Megrendelő
+        t.cpvCode || "",
+        t.matchedKeyword || "",
+        t.link || ""
+      ]);
+
+      // Build CSV content with semicolon separator (better for Excel in EU)
+      const csvContent = [
+        headers.join(";"),
+        ...rows.map(row => row.join(";"))
+      ].join("\r\n");
+
+      // Add UTF-8 BOM for Excel to recognize encoding
+      const bom = "\uFEFF";
+
+      // Set headers for file download
+      const filename = `seap_achizitii_${new Date().toISOString().split('T')[0]}.csv`;
+      res.setHeader("Content-Type", "text/csv; charset=utf-8");
+      res.setHeader("Content-Disposition", `attachment; filename="${filename}"`);
+
+      res.send(bom + csvContent);
+    } catch (error) {
+      console.error("Eroare la export CSV:", error);
+      res.status(500).json({ message: "Eroare la generarea fișierului CSV" });
+    }
+  });
+
   return httpServer;
 }
 
@@ -163,7 +213,8 @@ async function saveTenders(results: any[]) {
         noticeNumber: item.publicNoticeNo,
         title: item.directAcquisitionName,
         description: item.directAcquisitionDescription || "",
-        authority: item.contractingAuthorityName,
+        authority: item.contractingAuthorityName || "Autoritate necunoscută",
+        supplier: item.supplierName || "",  // Nyertes cég neve
         value: item.closingValue?.toString() || "0",
         currency: "RON",
         cpvCode: item.cpvCode,

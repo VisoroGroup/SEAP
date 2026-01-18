@@ -7,7 +7,8 @@ export const tenders = pgTable("tenders", {
   noticeNumber: text("notice_number").unique(), // publicNoticeNo
   title: text("title").notNull(), // directAcquisitionName
   description: text("description"), // directAcquisitionDescription
-  authority: text("authority").notNull(), // contractingAuthorityName
+  authority: text("authority").notNull(), // contractingAuthorityName - A megrendelő
+  supplier: text("supplier"), // A nyertes cég neve
   value: numeric("value").notNull(), // closingValue
   currency: text("currency").notNull().default("RON"),
   location: text("location"), // Not directly in CSV, but maybe in details
@@ -20,7 +21,7 @@ export const tenders = pgTable("tenders", {
   link: text("link"),
 });
 
-export const insertTenderSchema = createInsertSchema(tenders).omit({ 
+export const insertTenderSchema = createInsertSchema(tenders).omit({
   id: true
 });
 
