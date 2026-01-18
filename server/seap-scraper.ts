@@ -23,27 +23,60 @@ const BASE_URL = "https://e-licitatie.ro";
 const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcquisitionList/`;
 const DETAIL_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisition/GetDirectAcquisitionView`;
 
-// Extended keywords list
+// Extended keywords list - SIMPLIFIED for better matching
 const KEYWORDS = [
-  // Original
-  "rsv", "renns", "gis", "cartografiere", "ortofotoplan", "harta",
-  // Registru
-  "registru", "registru electronic", "nomenclator stradal", "nomenclatura stradală",
-  "bază de date spațială", "sistem informatic GIS", "platformă GIS",
-  "digitalizare hărți", "actualizare baze de date",
-  // Urbanism digital
-  "urbanism digital", "PUG digital", "digitalizare PUG",
-  "regulament local de urbanism", "certificat de urbanism",
-  "autorizație de construire", "gestionare urbanism",
-  // Spații verzi
-  "registrul spațiilor verzi", "inventariere spații verzi",
-  "fond verde", "mediu urban", "amenajare spații verzi",
-  // Inventariere domeniu public
-  "inventariere domeniu public", "baza patrimonială",
-  "evidență bunuri publice", "date geospațiale", "sistem suport decizie",
-  // Servicii
-  "servicii informatice", "servicii de consultanță GIS",
-  "servicii digitale administrație publică"
+  // Core GIS/Mapping terms (most important)
+  "gis",
+  "cartografiere",
+  "ortofotoplan",
+  "harta",
+  "harti",
+  "hartă",
+  "hărți",
+  "topografic",
+  "topografie",
+  "cadastru",
+  "cadastral",
+  "geospațial",
+  "geospatial",
+
+  // Registry terms
+  "registru",
+  "nomenclator",
+  "nomenclatură",
+  "inventariere",
+  "inventar",
+
+  // Urbanism
+  "urbanism",
+  "urbanistic",
+  "pug",
+  "puz",
+  "pud",
+
+  // Green spaces
+  "spații verzi",
+  "spatii verzi",
+  "spațiu verde",
+  "fond verde",
+
+  // Public domain
+  "domeniu public",
+  "patrimoniu",
+  "bunuri publice",
+
+  // IT Services
+  "sistem informatic",
+  "digitalizare",
+  "platformă",
+  "platforma",
+  "software",
+  "aplicație",
+  "aplicatie",
+
+  // Original keywords
+  "rsv",
+  "renns"
 ];
 
 export class SeapScraper {
@@ -103,17 +136,25 @@ export class SeapScraper {
 
     while (hasMore) {
       const data = await this.fetchAcquisitions(targetDate, targetDate, pageIndex);
-      
+
       if (!data || !data.items || data.items.length === 0) {
         break;
       }
 
       console.log(`Page ${pageIndex}: ${data.items.length} items (total: ${data.total})`);
 
+      // Debug: Show first 3 item names on first page to verify data
+      if (pageIndex === 0 && data.items.length > 0) {
+        console.log(`Sample items from page 0:`);
+        data.items.slice(0, 3).forEach((item, i) => {
+          console.log(`  ${i + 1}. ${item.directAcquisitionName?.substring(0, 80) || 'NO NAME'}`);
+        });
+      }
+
       for (const item of data.items) {
         const keywordInName = this.findMatchingKeyword(item.directAcquisitionName);
         const keywordInDesc = this.findMatchingKeyword(item.directAcquisitionDescription || "");
-        
+
         const matchedKeyword = keywordInName || keywordInDesc;
 
         if (matchedKeyword) {
