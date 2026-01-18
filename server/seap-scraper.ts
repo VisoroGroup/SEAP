@@ -161,12 +161,28 @@ export class SeapScraper {
     }
   }
 
+  // Keywords that need word boundary matching (short words that could match inside other words)
+  private wordBoundaryKeywords = new Set(["gis", "rsv", "pug", "puz", "pud"]);
+
   private findMatchingKeyword(text: string): string | null {
     if (!text) return null;
     const lowerText = text.toLowerCase();
+
     for (const keyword of KEYWORDS) {
-      if (lowerText.includes(keyword.toLowerCase())) {
-        return keyword;
+      const lowerKeyword = keyword.toLowerCase();
+
+      // For short keywords, use word boundary matching
+      if (this.wordBoundaryKeywords.has(lowerKeyword)) {
+        // Match only if keyword is a complete word (not part of another word)
+        const regex = new RegExp(`\\b${lowerKeyword}\\b`, 'i');
+        if (regex.test(lowerText)) {
+          return keyword;
+        }
+      } else {
+        // For longer/phrase keywords, use regular contains
+        if (lowerText.includes(lowerKeyword)) {
+          return keyword;
+        }
       }
     }
     return null;
