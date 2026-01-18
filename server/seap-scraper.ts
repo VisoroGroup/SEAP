@@ -1,10 +1,11 @@
-// Types based on the Python script's logic
+// SEAP/SICAP Direct Acquisition Scraper with proper session handling
+
 export interface SeapAcquisition {
   directAcquisitionId: number;
   publicNoticeNo: string;
   directAcquisitionName: string;
   directAcquisitionDescription?: string;
-  contractingAuthorityName?: string;  // Optional - API sometimes returns null
+  contractingAuthorityName?: string;
   cpvCode: string;
   closingValue: number;
   publicationDate: string;
@@ -20,9 +21,9 @@ export interface SeapApiResponse {
 const BASE_URL = "https://e-licitatie.ro";
 const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcquisitionList/`;
 
-// ONLY specific keywords - no generic words that cause false positives
+// Keywords - specific to your business
 const KEYWORDS = [
-  // === VISORO Products (your company) ===
+  // VISORO Products
   "cartinspect",
   "soluție geospațială",
   "solutie geospatiala",
@@ -32,22 +33,20 @@ const KEYWORDS = [
   "cartografie digitala",
   "servicii de cartografie",
 
-  // === FULL PHRASES (exact matches) ===
-
-  // RENNS - Registrul Electronic National al Nomenclaturii Stradale
+  // RENNS
   "registrul electronic national al nomenclaturii stradale",
   "registrul electronic național al nomenclaturii stradale",
   "nomenclatura stradala",
   "nomenclatură stradală",
   "nomenclator stradal",
 
-  // RSV - Registrul Spatiilor Verzi
+  // RSV
   "registrul spatiilor verzi",
   "registrul spațiilor verzi",
   "registru spatii verzi",
   "registru spații verzi",
 
-  // GIS/Mapping phrases
+  // GIS
   "sistem geografic",
   "sistem informatic geografic",
   "platforma gis",
@@ -96,7 +95,7 @@ const KEYWORDS = [
   "evidenta bunuri publice",
   "evidență bunuri publice",
 
-  // === INDIVIDUAL WORDS (also match alone) ===
+  // Single words (with word boundary matching)
   "gis",
   "ortofotoplan",
   "cartografiere",
@@ -113,56 +112,115 @@ const KEYWORDS = [
 ];
 
 export class SeapScraper {
+  private cookies: string = "";
+  private sessionInitialized = false;
+
   private headers = {
-    "Content-Type": "application/json",
-    "Accept": "application/json",
     "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Accept": "application/json, text/plain, */*",
     "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
+    "Accept-Encoding": "gzip, deflate, br",
     "Origin": "https://e-licitatie.ro",
     "Referer": "https://e-licitatie.ro/pub/direct-acquisitions/list/1/0"
   };
 
-  // Convert YYYY-MM-DD to DD.MM.YYYY (Romanian format)
-  private formatDateForApi(isoDate: string): string {
-    const [year, month, day] = isoDate.split('-');
-    return `${day}.${month}.${year}`;
+  // Initialize session by visiting main page first (gets cookies)
+  private async initializeSession(): Promise<void> {
+    if (this.sessionInitialized) return;
+
+    console.log("Initializing session with e-licitatie.ro...");
+
+    try {
+      // First, visit the main direct acquisitions page
+      const response = await fetch("https://e-licitatie.ro/pub/direct-acquisitions/list/1/0", {
+        method: 'GET',
+        headers: {
+          "User-Agent": this.headers["User-Agent"],
+          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
+          "Accept-Language": "ro-RO,ro;q=0.9"
+        }
+      });
+
+      // Extract cookies from response
+      const setCookieHeaders = response.headers.get('set-cookie');
+      if (setCookieHeaders) {
+        this.cookies = setCookieHeaders;
+        console.log("Session cookies obtained");
+      }
+
+      this.sessionInitialized = true;
+      console.log("Session initialized successfully");
+
+      // Small delay after initialization
+      await new Promise(resolve => setTimeout(resolve, 1000));
+
+    } catch (error) {
+      console.error("Failed to initialize session:", error);
+    }
   }
 
   private async fetchAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
-    // Use ISO format YYYY-MM-DD (confirmed correct) and null for all states
+    // Ensure session is initialized
+    await this.initializeSession();
+
     const payload = {
-      sysDirectAcquisitionStateId: null,  // null = all states
+      pageSize: pageSize,
+      pageIndex: pageIndex,
+      sysDirectAcquisitionStateId: null,
       publicationDateStart: dateStart,
       publicationDateEnd: dateEnd,
-      pageSize: pageSize,
-      pageIndex: pageIndex
+      finalizationDateStart: null,
+      finalizationDateEnd: null,
+      cpvCodeId: null,
+      contractingAuthorityId: null,
+      supplierId: null,
+      assignedUserId: null,
+      isCentralizedProcurement: null
     };
 
-    // Debug: Log the payload on first page
     if (pageIndex === 0) {
       console.log(`API Payload: ${JSON.stringify(payload)}`);
     }
 
     try {
+      const requestHeaders: Record<string, string> = {
+        ...this.headers,
+        "Content-Type": "application/json"
+      };
+
+      if (this.cookies) {
+        requestHeaders["Cookie"] = this.cookies;
+      }
+
       const response = await fetch(LIST_ENDPOINT, {
         method: 'POST',
-        headers: this.headers,
+        headers: requestHeaders,
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
-        throw new Error(`SEAP API error: ${response.statusText}`);
+        const errorText = await response.text();
+        console.error(`SEAP API error: ${response.status} - ${errorText}`);
+        return null;
       }
 
-      return await response.json() as SeapApiResponse;
+      const data = await response.json() as SeapApiResponse;
+
+      // Debug: Check if we're getting dates from the right period
+      if (pageIndex === 0 && data.items && data.items.length > 0) {
+        const firstItemDate = data.items[0].publicationDate;
+        console.log(`First item publication date: ${firstItemDate}`);
+      }
+
+      return data;
     } catch (error) {
       console.error("Error fetching SEAP data:", error);
       return null;
     }
   }
 
-  // Keywords that need word boundary matching (short words that could match inside other words)
-  private wordBoundaryKeywords = new Set(["gis", "rsv", "pug", "puz", "pud"]);
+  // Keywords that need word boundary matching
+  private wordBoundaryKeywords = new Set(["gis", "rsv", "pug", "puz", "pud", "renns"]);
 
   private findMatchingKeyword(text: string): string | null {
     if (!text) return null;
@@ -171,15 +229,12 @@ export class SeapScraper {
     for (const keyword of KEYWORDS) {
       const lowerKeyword = keyword.toLowerCase();
 
-      // For short keywords, use word boundary matching
       if (this.wordBoundaryKeywords.has(lowerKeyword)) {
-        // Match only if keyword is a complete word (not part of another word)
         const regex = new RegExp(`\\b${lowerKeyword}\\b`, 'i');
         if (regex.test(lowerText)) {
           return keyword;
         }
       } else {
-        // For longer/phrase keywords, use regular contains
         if (lowerText.includes(lowerKeyword)) {
           return keyword;
         }
@@ -191,6 +246,7 @@ export class SeapScraper {
   public async scrapeDay(targetDate: string) {
     console.log(`Starting scrape for ${targetDate}...`);
     console.log(`Using ${KEYWORDS.length} keywords`);
+
     let pageIndex = 0;
     const results = [];
     let hasMore = true;
@@ -204,11 +260,12 @@ export class SeapScraper {
 
       console.log(`Page ${pageIndex}: ${data.items.length} items (total: ${data.total})`);
 
-      // Debug: Show first 3 item names on first page to verify data
+      // Debug: Show first 3 items on first page
       if (pageIndex === 0 && data.items.length > 0) {
         console.log(`Sample items from page 0:`);
         data.items.slice(0, 3).forEach((item, i) => {
-          console.log(`  ${i + 1}. ${item.directAcquisitionName?.substring(0, 80) || 'NO NAME'}`);
+          const pubDate = item.publicationDate?.split('T')[0] || 'unknown date';
+          console.log(`  ${i + 1}. [${pubDate}] ${item.directAcquisitionName?.substring(0, 60) || 'NO NAME'}`);
         });
       }
 
@@ -219,7 +276,6 @@ export class SeapScraper {
         const matchedKeyword = keywordInName || keywordInDesc;
 
         if (matchedKeyword) {
-          // Add item with matched keyword and ensure required fields have defaults
           results.push({
             ...item,
             matchedKeyword,
@@ -233,13 +289,20 @@ export class SeapScraper {
         hasMore = false;
       } else {
         pageIndex++;
-        // Rate limiting
-        await new Promise(resolve => setTimeout(resolve, 500));
+        // Rate limiting - random delay between 500-1500ms
+        const delay = 500 + Math.random() * 1000;
+        await new Promise(resolve => setTimeout(resolve, delay));
       }
     }
 
     console.log(`Found ${results.length} matching acquisitions for ${targetDate}`);
     return results;
+  }
+
+  // Reset session for next scrape
+  public resetSession() {
+    this.sessionInitialized = false;
+    this.cookies = "";
   }
 }
 
