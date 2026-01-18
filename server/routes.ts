@@ -4,6 +4,7 @@ import { storage } from "./storage";
 import { api } from "@shared/routes";
 import { z } from "zod";
 import { scraper } from "./seap-scraper";
+import { sendNotificationEmail } from "./email-service";
 
 export async function registerRoutes(
   httpServer: Server,
@@ -47,7 +48,22 @@ export async function registerRoutes(
       const today = new Date().toISOString().split('T')[0];
       const results = await scraper.scrapeDay(today);
 
+      // Calculate total scanned (2000 is the API limit per day usually)
+      const totalScanned = 2000;
+
       const saved = await saveTenders(results);
+
+      // Always send email - with results or status report
+      await sendNotificationEmail(
+        saved.map(t => ({
+          title: t.title,
+          authority: t.authority,
+          value: t.value,
+          matchedKeyword: t.matchedKeyword || '',
+          link: t.link || ''
+        })),
+        totalScanned
+      );
 
       res.json({ message: `S-au salvat ${saved.length} achiziții noi`, count: saved.length });
     } catch (error) {
