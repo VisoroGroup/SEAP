@@ -122,9 +122,12 @@ const KEYWORDS = [
   "pug digital",
   "puz digital",
   "transpunere pug",
+  "transpunere puz",
   "urbanism digital",
   "documentatie urbanistica",
   "documentație urbanistică",
+  "documentatii de urbanism",
+  "documentații de urbanism",
 
   // === Inventariere ===
   "inventariere spatii verzi",
@@ -134,6 +137,27 @@ const KEYWORDS = [
   "inventariere domeniu public",
   "evidenta bunuri publice",
   "evidență bunuri publice",
+  "intocmire registru",
+  "întocmire registru",
+  "intocmirea registrului",
+  "întocmirea registrului",
+
+  // === Action verbs combinations ===
+  "elaborare registru",
+  "elaborarea registrului",
+  "gestionare registru",
+  "gestionarea registrului",
+  "implementare registru",
+  "implementarea registrului",
+  "actualizare registru",
+  "actualizarea registrului",
+  "realizare registru",
+  "realizarea registrului",
+  "realizare nomenclator",
+  "realizarea nomenclatorului",
+  "implementare nomenclator",
+  "implementare nomenclatură",
+  "servicii de elaborare",
 
   // === Single words (word boundary matching) ===
   "gis",
@@ -143,7 +167,9 @@ const KEYWORDS = [
   "geospațial",
   "geospatial",
   "topografie",
-  "cadastru"
+  "cadastru",
+  "topografic",
+  "cadastral"
 ];
 
 export class SeapScraper {
