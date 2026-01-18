@@ -129,14 +129,11 @@ export class SeapScraper {
   }
 
   private async fetchAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
-    // Try Romanian date format
-    const formattedStart = this.formatDateForApi(dateStart);
-    const formattedEnd = this.formatDateForApi(dateEnd);
-
+    // Use ISO format YYYY-MM-DD (confirmed correct) and null for all states
     const payload = {
-      sysDirectAcquisitionStateId: 7,
-      publicationDateStart: formattedStart,
-      publicationDateEnd: formattedEnd,
+      sysDirectAcquisitionStateId: null,  // null = all states
+      publicationDateStart: dateStart,
+      publicationDateEnd: dateEnd,
       pageSize: pageSize,
       pageIndex: pageIndex
     };
