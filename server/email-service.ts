@@ -1,56 +1,56 @@
 import nodemailer from 'nodemailer';
 
 interface TenderNotification {
-    title: string;
-    authority: string;
-    value: string;
-    matchedKeyword: string;
-    link: string;
+  title: string;
+  authority: string;
+  value: string;
+  matchedKeyword: string;
+  link: string;
 }
 
 // Email configuration from environment variables
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
-const SMTP_SERVER = process.env.SMTP_SERVER || 'smtp.gmail.com';
+const SMTP_SERVER = process.env.SMTP_SERVER || 'smtp.office365.com';
 const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
 const EMAIL_SENDER = process.env.EMAIL_SENDER || '';
 const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD || '';
 const EMAIL_RECIPIENT = process.env.EMAIL_RECIPIENT || '';
 
 const transporter = nodemailer.createTransport({
-    host: SMTP_SERVER,
-    port: SMTP_PORT,
-    secure: SMTP_PORT === 465,
-    auth: {
-        user: EMAIL_SENDER,
-        pass: EMAIL_PASSWORD,
-    },
+  host: SMTP_SERVER,
+  port: SMTP_PORT,
+  secure: SMTP_PORT === 465,
+  auth: {
+    user: EMAIL_SENDER,
+    pass: EMAIL_PASSWORD,
+  },
 });
 
 export async function sendNotificationEmail(tenders: TenderNotification[]): Promise<boolean> {
-    if (!EMAIL_ENABLED) {
-        console.log('Notificări email dezactivate');
-        return false;
-    }
+  if (!EMAIL_ENABLED) {
+    console.log('Notificări email dezactivate');
+    return false;
+  }
 
-    if (!EMAIL_SENDER || !EMAIL_PASSWORD || !EMAIL_RECIPIENT) {
-        console.log('Configurare email incompletă - verifică variabilele de mediu');
-        return false;
-    }
+  if (!EMAIL_SENDER || !EMAIL_PASSWORD || !EMAIL_RECIPIENT) {
+    console.log('Configurare email incompletă - verifică variabilele de mediu');
+    return false;
+  }
 
-    if (tenders.length === 0) {
-        console.log('Nu există achiziții noi de notificat');
-        return false;
-    }
+  if (tenders.length === 0) {
+    console.log('Nu există achiziții noi de notificat');
+    return false;
+  }
 
-    const now = new Date().toLocaleDateString('ro-RO', {
-        year: 'numeric',
-        month: 'long',
-        day: 'numeric',
-        hour: '2-digit',
-        minute: '2-digit'
-    });
+  const now = new Date().toLocaleDateString('ro-RO', {
+    year: 'numeric',
+    month: 'long',
+    day: 'numeric',
+    hour: '2-digit',
+    minute: '2-digit'
+  });
 
-    const htmlContent = `
+  const htmlContent = `
     <!DOCTYPE html>
     <html>
     <head>
@@ -102,7 +102,7 @@ export async function sendNotificationEmail(tenders: TenderNotification[]): Prom
     </html>
   `;
 
-    const textContent = `
+  const textContent = `
 SEAP Monitor - Achiziții Noi Găsite!
 ====================================
 
@@ -121,19 +121,19 @@ ${tenders.map(t => `
 Acest email a fost trimis automat de SEAP Monitor.
   `;
 
-    try {
-        await transporter.sendMail({
-            from: EMAIL_SENDER,
-            to: EMAIL_RECIPIENT,
-            subject: `🎯 SEAP Alert: ${tenders.length} achiziții noi găsite!`,
-            text: textContent,
-            html: htmlContent,
-        });
+  try {
+    await transporter.sendMail({
+      from: EMAIL_SENDER,
+      to: EMAIL_RECIPIENT,
+      subject: `🎯 SEAP Alert: ${tenders.length} achiziții noi găsite!`,
+      text: textContent,
+      html: htmlContent,
+    });
 
-        console.log(`Email trimis cu succes către ${EMAIL_RECIPIENT}`);
-        return true;
-    } catch (error) {
-        console.error('Eroare la trimiterea email-ului:', error);
-        return false;
-    }
+    console.log(`Email trimis cu succes către ${EMAIL_RECIPIENT}`);
+    return true;
+  } catch (error) {
+    console.error('Eroare la trimiterea email-ului:', error);
+    return false;
+  }
 }
