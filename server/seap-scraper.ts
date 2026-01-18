@@ -1,4 +1,5 @@
-// SEAP/SICAP Direct Acquisition Scraper with proper session handling
+// SEAP/SICAP Direct Acquisition Scraper - CORRECT API IMPLEMENTATION
+// Based on actual e-licitatie.ro API reverse engineering
 
 export interface SeapAcquisition {
   directAcquisitionId: number;
@@ -112,107 +113,114 @@ const KEYWORDS = [
 ];
 
 export class SeapScraper {
-  private cookies: string = "";
-  private sessionInitialized = false;
-
   private headers = {
-    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
+    "Content-Type": "application/json",
     "Accept": "application/json, text/plain, */*",
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
     "Accept-Language": "ro-RO,ro;q=0.9,en-US;q=0.8,en;q=0.7",
-    "Accept-Encoding": "gzip, deflate, br",
     "Origin": "https://e-licitatie.ro",
     "Referer": "https://e-licitatie.ro/pub/direct-acquisitions/list/1/0"
   };
 
-  // Initialize session by visiting main page first (gets cookies)
-  private async initializeSession(): Promise<void> {
-    if (this.sessionInitialized) return;
+  // Convert YYYY-MM-DD to ISO UTC string for API
+  private toIsoUtc(dateStr: string, isEndOfDay: boolean = false): string {
+    // Parse the date string YYYY-MM-DD
+    const [year, month, day] = dateStr.split('-').map(Number);
 
-    console.log("Initializing session with e-licitatie.ro...");
-
-    try {
-      // First, visit the main direct acquisitions page
-      const response = await fetch("https://e-licitatie.ro/pub/direct-acquisitions/list/1/0", {
-        method: 'GET',
-        headers: {
-          "User-Agent": this.headers["User-Agent"],
-          "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-          "Accept-Language": "ro-RO,ro;q=0.9"
-        }
-      });
-
-      // Extract cookies from response
-      const setCookieHeaders = response.headers.get('set-cookie');
-      if (setCookieHeaders) {
-        this.cookies = setCookieHeaders;
-        console.log("Session cookies obtained");
-      }
-
-      this.sessionInitialized = true;
-      console.log("Session initialized successfully");
-
-      // Small delay after initialization
-      await new Promise(resolve => setTimeout(resolve, 1000));
-
-    } catch (error) {
-      console.error("Failed to initialize session:", error);
+    // Create date in local timezone (Romania is GMT+2)
+    // For start of day: previous day 22:00 UTC (00:00 local time)
+    // For end of day: current day 21:59:59 UTC (23:59:59 local time)
+    if (isEndOfDay) {
+      return `${year}-${String(month).padStart(2, '0')}-${String(day).padStart(2, '0')}T21:59:59.000Z`;
+    } else {
+      // Start of day - previous day 22:00 UTC
+      const date = new Date(Date.UTC(year, month - 1, day - 1, 22, 0, 0, 0));
+      return date.toISOString();
     }
   }
 
-  private async fetchAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
-    // Ensure session is initialized
-    await this.initializeSession();
-
+  // Fetch FINALIZED acquisitions (showOngoingDa: false, uses finalizationDate)
+  private async fetchFinalizedAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
     const payload = {
       pageSize: pageSize,
+      showOngoingDa: false,  // CRITICAL: false = finalized acquisitions
       pageIndex: pageIndex,
       sysDirectAcquisitionStateId: null,
-      publicationDateStart: dateStart,
-      publicationDateEnd: dateEnd,
-      finalizationDateStart: null,
-      finalizationDateEnd: null,
+      finalizationDateStart: this.toIsoUtc(dateStart, false),
+      finalizationDateEnd: this.toIsoUtc(dateEnd, true),
+      publicationDateStart: null,
+      publicationDateEnd: null,
       cpvCodeId: null,
       contractingAuthorityId: null,
       supplierId: null,
       assignedUserId: null,
-      isCentralizedProcurement: null
+      isCentralizedProcurement: null,
+      directAcquisitionName: null,
+      uniqueIdentificationCode: null
     };
 
     if (pageIndex === 0) {
-      console.log(`API Payload: ${JSON.stringify(payload)}`);
+      console.log(`API Payload (Finalized): ${JSON.stringify(payload)}`);
     }
 
     try {
-      const requestHeaders: Record<string, string> = {
-        ...this.headers,
-        "Content-Type": "application/json"
-      };
-
-      if (this.cookies) {
-        requestHeaders["Cookie"] = this.cookies;
-      }
-
       const response = await fetch(LIST_ENDPOINT, {
         method: 'POST',
-        headers: requestHeaders,
+        headers: this.headers,
         body: JSON.stringify(payload)
       });
 
       if (!response.ok) {
         const errorText = await response.text();
-        console.error(`SEAP API error: ${response.status} - ${errorText}`);
+        console.error(`SEAP API error: ${response.status} - ${errorText.substring(0, 200)}`);
         return null;
       }
 
-      const data = await response.json() as SeapApiResponse;
+      return await response.json() as SeapApiResponse;
+    } catch (error) {
+      console.error("Error fetching SEAP data:", error);
+      return null;
+    }
+  }
 
-      // Debug: Check if we're getting dates from the right period
-      if (pageIndex === 0 && data.items && data.items.length > 0) {
-        const firstItemDate = data.items[0].publicationDate;
-        console.log(`First item publication date: ${firstItemDate}`);
+  // Fetch ONGOING acquisitions (showOngoingDa: true, uses publicationDate)
+  private async fetchOngoingAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
+    const payload = {
+      pageSize: pageSize,
+      showOngoingDa: true,  // true = in progress acquisitions
+      pageIndex: pageIndex,
+      sysDirectAcquisitionStateId: null,
+      finalizationDateStart: null,
+      finalizationDateEnd: null,
+      publicationDateStart: this.toIsoUtc(dateStart, false),
+      publicationDateEnd: this.toIsoUtc(dateEnd, true),
+      cpvCodeId: null,
+      contractingAuthorityId: null,
+      supplierId: null,
+      assignedUserId: null,
+      isCentralizedProcurement: null,
+      directAcquisitionName: null,
+      uniqueIdentificationCode: null
+    };
+
+    if (pageIndex === 0) {
+      console.log(`API Payload (Ongoing): ${JSON.stringify(payload)}`);
+    }
+
+    try {
+      const response = await fetch(LIST_ENDPOINT, {
+        method: 'POST',
+        headers: this.headers,
+        body: JSON.stringify(payload)
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        console.error(`SEAP API error: ${response.status} - ${errorText.substring(0, 200)}`);
+        return null;
       }
 
-      return data;
+      return await response.json() as SeapApiResponse;
     } catch (error) {
       console.error("Error fetching SEAP data:", error);
       return null;
@@ -243,28 +251,36 @@ export class SeapScraper {
     return null;
   }
 
-  public async scrapeDay(targetDate: string) {
-    console.log(`Starting scrape for ${targetDate}...`);
-    console.log(`Using ${KEYWORDS.length} keywords`);
-
+  private async scrapeBatch(
+    fetchFn: (dateStart: string, dateEnd: string, pageIndex: number) => Promise<SeapApiResponse | null>,
+    dateStart: string,
+    dateEnd: string,
+    batchName: string
+  ): Promise<any[]> {
+    console.log(`\n--- Scraping ${batchName} acquisitions ---`);
     let pageIndex = 0;
-    const results = [];
+    const results: any[] = [];
     let hasMore = true;
+    let totalProcessed = 0;
 
     while (hasMore) {
-      const data = await this.fetchAcquisitions(targetDate, targetDate, pageIndex);
+      const data = await fetchFn(dateStart, dateEnd, pageIndex);
 
       if (!data || !data.items || data.items.length === 0) {
+        if (pageIndex === 0) {
+          console.log(`No ${batchName} items found for this date range`);
+        }
         break;
       }
 
-      console.log(`Page ${pageIndex}: ${data.items.length} items (total: ${data.total})`);
+      totalProcessed += data.items.length;
+      console.log(`${batchName} Page ${pageIndex}: ${data.items.length} items (total available: ${data.total})`);
 
       // Debug: Show first 3 items on first page
       if (pageIndex === 0 && data.items.length > 0) {
-        console.log(`Sample items from page 0:`);
+        console.log(`Sample ${batchName} items:`);
         data.items.slice(0, 3).forEach((item, i) => {
-          const pubDate = item.publicationDate?.split('T')[0] || 'unknown date';
+          const pubDate = item.publicationDate?.split('T')[0] || 'unknown';
           console.log(`  ${i + 1}. [${pubDate}] ${item.directAcquisitionName?.substring(0, 60) || 'NO NAME'}`);
         });
       }
@@ -281,28 +297,51 @@ export class SeapScraper {
             matchedKeyword,
             contractingAuthorityName: item.contractingAuthorityName || "Autoritate necunoscută"
           });
-          console.log(`Match: ${item.directAcquisitionName.substring(0, 50)}... (${matchedKeyword})`);
+          console.log(`✓ MATCH: ${item.directAcquisitionName?.substring(0, 50)}... (${matchedKeyword})`);
         }
       }
 
-      if (data.items.length < 100) {
+      if (data.items.length < 100 || totalProcessed >= data.total) {
         hasMore = false;
       } else {
         pageIndex++;
-        // Rate limiting - random delay between 500-1500ms
-        const delay = 500 + Math.random() * 1000;
-        await new Promise(resolve => setTimeout(resolve, delay));
+        // Rate limiting
+        await new Promise(resolve => setTimeout(resolve, 300 + Math.random() * 200));
       }
     }
 
-    console.log(`Found ${results.length} matching acquisitions for ${targetDate}`);
+    console.log(`${batchName}: Processed ${totalProcessed} items, found ${results.length} matches`);
     return results;
   }
 
-  // Reset session for next scrape
-  public resetSession() {
-    this.sessionInitialized = false;
-    this.cookies = "";
+  public async scrapeDay(targetDate: string) {
+    console.log(`\n========================================`);
+    console.log(`Starting scrape for ${targetDate}`);
+    console.log(`Using ${KEYWORDS.length} keywords`);
+    console.log(`========================================`);
+
+    // Scrape BOTH finalized and ongoing acquisitions
+    const finalizedResults = await this.scrapeBatch(
+      this.fetchFinalizedAcquisitions.bind(this),
+      targetDate,
+      targetDate,
+      "Finalized"
+    );
+
+    const ongoingResults = await this.scrapeBatch(
+      this.fetchOngoingAcquisitions.bind(this),
+      targetDate,
+      targetDate,
+      "Ongoing"
+    );
+
+    const allResults = [...finalizedResults, ...ongoingResults];
+
+    console.log(`\n========================================`);
+    console.log(`TOTAL for ${targetDate}: ${allResults.length} matching acquisitions`);
+    console.log(`========================================\n`);
+
+    return allResults;
   }
 }
 
