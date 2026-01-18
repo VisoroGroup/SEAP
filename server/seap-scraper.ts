@@ -107,8 +107,11 @@ const KEYWORDS = [
   "topografie",
   "cadastru",
 
-  // Brand names
-  "rsv",
+  // Simpler phrases that don't cause false positives
+  "spatii verzi",
+  "spații verzi",
+
+  // Brand names - only RENNS (rsv removed because it matches RSV virus in COVID tests)
   "renns"
 ];
 
