@@ -122,14 +122,29 @@ export class SeapScraper {
     "Referer": "https://e-licitatie.ro/pub/direct-acquisitions/list/1/0"
   };
 
+  // Convert YYYY-MM-DD to DD.MM.YYYY (Romanian format)
+  private formatDateForApi(isoDate: string): string {
+    const [year, month, day] = isoDate.split('-');
+    return `${day}.${month}.${year}`;
+  }
+
   private async fetchAcquisitions(dateStart: string, dateEnd: string, pageIndex = 0, pageSize = 100): Promise<SeapApiResponse | null> {
+    // Try Romanian date format
+    const formattedStart = this.formatDateForApi(dateStart);
+    const formattedEnd = this.formatDateForApi(dateEnd);
+
     const payload = {
       sysDirectAcquisitionStateId: 7,
-      publicationDateStart: dateStart,
-      publicationDateEnd: dateEnd,
+      publicationDateStart: formattedStart,
+      publicationDateEnd: formattedEnd,
       pageSize: pageSize,
       pageIndex: pageIndex
     };
+
+    // Debug: Log the payload on first page
+    if (pageIndex === 0) {
+      console.log(`API Payload: ${JSON.stringify(payload)}`);
+    }
 
     try {
       const response = await fetch(LIST_ENDPOINT, {
