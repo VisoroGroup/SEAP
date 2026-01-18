@@ -22,6 +22,16 @@ const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcqu
 
 // ONLY specific keywords - no generic words that cause false positives
 const KEYWORDS = [
+  // === VISORO Products (your company) ===
+  "cartinspect",
+  "soluție geospațială",
+  "solutie geospatiala",
+  "inspecție fiscală",
+  "inspectie fiscala",
+  "cartografie digitală",
+  "cartografie digitala",
+  "servicii de cartografie",
+
   // === FULL PHRASES (exact matches) ===
 
   // RENNS - Registrul Electronic National al Nomenclaturii Stradale
