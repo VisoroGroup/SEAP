@@ -22,9 +22,9 @@ export interface SeapApiResponse {
 const BASE_URL = "https://e-licitatie.ro";
 const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcquisitionList/`;
 
-// Keywords - specific to your business
+// Keywords - comprehensive list based on actual acquisitions
 const KEYWORDS = [
-  // VISORO Products
+  // === VISORO Products ===
   "cartinspect",
   "soluție geospațială",
   "solutie geospatiala",
@@ -34,64 +34,99 @@ const KEYWORDS = [
   "cartografie digitala",
   "servicii de cartografie",
 
-  // RENNS
+  // === RENNS - Registrul Electronic Național de Nomenclatură Stradală ===
+  "renns",
+  "r.e.n.n.s",
+  "registrul electronic national de nomenclatura stradala",
+  "registrul electronic național de nomenclatură stradală",
   "registrul electronic national al nomenclaturii stradale",
-  "registrul electronic național al nomenclaturii stradale",
   "nomenclatura stradala",
   "nomenclatură stradală",
   "nomenclator stradal",
+  "nomenclatură stradală",
+  "culegere date nomenclatură stradală",
 
-  // RSV - Registrul Spațiilor Verzi (all forms)
+  // === RSV - Registrul Spațiilor Verzi ===
   "registrul spatiilor verzi",
   "registrul spațiilor verzi",
   "registru spatii verzi",
   "registru spații verzi",
   "registrul local al spatiilor verzi",
   "registrul local al spațiilor verzi",
-  "spatiilor verzi",  // genitive form alone
+  "realizare registru spatii verzi",
+  "realizarea registrului spațiilor verzi",
+  "spatiilor verzi",
   "spațiilor verzi",
+  "spatii verzi",
+  "spații verzi",
 
-  // GIS
-  "sistem geografic",
-  "sistem informatic geografic",
+  // === GIS - Geographic Information Systems ===
+  "format gis",
+  "in format gis",
+  "în format gis",
+  "transpunere pug in format gis",
+  "transpunere pug în format gis",
+  "transpunere in gis",
+  "transpunere în gis",
+  "sistem gis",
+  "sistem de informatii geografice",
+  "sistem de informații geografice",
+  "sistemul de informatii geografice",
   "platforma gis",
   "platformă gis",
-  "sistem gis",
   "software gis",
   "aplicatie gis",
   "aplicație gis",
+  "servicii de gis",
+  "servicii gis",
+  "urban gis",
+  "urbangis",
+  "date spatiale",
+  "baza de date gis",
+  "documentatie in format digital",
 
-  // Ortofotoplan
+  // === Ortofotoplan ===
   "ortofotoplan",
   "orto foto plan",
   "ortofoto",
 
-  // Cadastru/Cartografiere
+  // === Cadastru/Topografie/Cartografiere ===
   "cartografiere",
+  "cartografiere a zonelor rurale",
+  "servicii de cartografiere a zonelor rurale",
+  "servicii de cartografiere a zonelor urbane",
   "hărți digitale",
   "harti digitale",
   "harta cadastrala",
   "hartă cadastrală",
+  "harti de cadastru digitale",
   "topografie",
   "topografic",
+  "studiu topografic",
+  "actualizare studiu topografic",
   "cadastru",
+  "cadastru sistematic",
   "cadastral",
-  "geospatial",
-  "geospațial",
+  "lucrări de cadastru",
+  "servicii cadastrale",
+  "inregistrare sistematica",
+  "înregistrare sistematică",
 
-  // Registru agricol
+  // === Registru agricol ===
   "registru agricol",
   "registrul agricol",
 
-  // Urbanism
+  // === Urbanism/PUG/PUZ ===
   "plan urbanistic",
+  "planul urbanistic general",
   "pug digital",
   "puz digital",
+  "transpunere pug",
   "urbanism digital",
   "documentatie urbanistica",
   "documentație urbanistică",
 
-  // Inventariere
+  // === Inventariere ===
   "inventariere spatii verzi",
   "inventariere spații verzi",
   "evidenta spatii verzi",
@@ -100,23 +135,15 @@ const KEYWORDS = [
   "evidenta bunuri publice",
   "evidență bunuri publice",
 
-  // Single words (with word boundary matching)
+  // === Single words (word boundary matching) ===
   "gis",
   "ortofotoplan",
   "cartografiere",
   "nomenclator",
-  "nomenclatură",
   "geospațial",
   "geospatial",
   "topografie",
-  "cadastru",
-
-  // Simpler phrases that don't cause false positives
-  "spatii verzi",
-  "spații verzi",
-
-  // Brand names - only RENNS (rsv removed because it matches RSV virus in COVID tests)
-  "renns"
+  "cadastru"
 ];
 
 export class SeapScraper {
