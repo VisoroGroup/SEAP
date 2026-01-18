@@ -22,12 +22,38 @@ const LIST_ENDPOINT = `${BASE_URL}/api-pub/DirectAcquisitionCommon/GetDirectAcqu
 
 // ONLY specific keywords - no generic words that cause false positives
 const KEYWORDS = [
-  // GIS/Mapping (core business)
-  "gis",
+  // === FULL PHRASES (exact matches) ===
+
+  // RENNS - Registrul Electronic National al Nomenclaturii Stradale
+  "registrul electronic national al nomenclaturii stradale",
+  "registrul electronic național al nomenclaturii stradale",
+  "nomenclatura stradala",
+  "nomenclatură stradală",
+  "nomenclator stradal",
+
+  // RSV - Registrul Spatiilor Verzi
+  "registrul spatiilor verzi",
+  "registrul spațiilor verzi",
+  "registru spatii verzi",
+  "registru spații verzi",
+
+  // GIS/Mapping phrases
+  "sistem geografic",
+  "sistem informatic geografic",
+  "platforma gis",
+  "platformă gis",
   "sistem gis",
-  "cartografiere",
+  "software gis",
+  "aplicatie gis",
+  "aplicație gis",
+
+  // Ortofotoplan
   "ortofotoplan",
+  "orto foto plan",
   "ortofoto",
+
+  // Cadastru/Cartografiere
+  "cartografiere",
   "hărți digitale",
   "harti digitale",
   "harta cadastrala",
@@ -39,14 +65,11 @@ const KEYWORDS = [
   "geospatial",
   "geospațial",
 
-  // Specific registries
+  // Registru agricol
   "registru agricol",
   "registrul agricol",
-  "registru spatii verzi",
-  "registrul spațiilor verzi",
-  "nomenclator stradal",
 
-  // Urbanism specific
+  // Urbanism
   "plan urbanistic",
   "pug digital",
   "puz digital",
@@ -54,24 +77,27 @@ const KEYWORDS = [
   "documentatie urbanistica",
   "documentație urbanistică",
 
-  // Green spaces specific
+  // Inventariere
   "inventariere spatii verzi",
   "inventariere spații verzi",
   "evidenta spatii verzi",
   "evidență spații verzi",
-
-  // Public domain specific
   "inventariere domeniu public",
   "evidenta bunuri publice",
   "evidență bunuri publice",
 
-  // IT/Software for public admin
-  "sistem informatic geografic",
-  "platforma gis",
-  "platformă gis",
-  "software gis",
+  // === INDIVIDUAL WORDS (also match alone) ===
+  "gis",
+  "ortofotoplan",
+  "cartografiere",
+  "nomenclator",
+  "nomenclatură",
+  "geospațial",
+  "geospatial",
+  "topografie",
+  "cadastru",
 
-  // Brand names (very specific)
+  // Brand names
   "rsv",
   "renns"
 ];
