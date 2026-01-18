@@ -41,11 +41,15 @@ const KEYWORDS = [
   "nomenclatură stradală",
   "nomenclator stradal",
 
-  // RSV
+  // RSV - Registrul Spațiilor Verzi (all forms)
   "registrul spatiilor verzi",
   "registrul spațiilor verzi",
   "registru spatii verzi",
   "registru spații verzi",
+  "registrul local al spatiilor verzi",
+  "registrul local al spațiilor verzi",
+  "spatiilor verzi",  // genitive form alone
+  "spațiilor verzi",
 
   // GIS
   "sistem geografic",
