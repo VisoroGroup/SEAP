@@ -1,4 +1,5 @@
-import nodemailer from 'nodemailer';
+// Modern email service using Resend API (no SMTP needed!)
+// https://resend.com - 100 emails/day free
 
 interface TenderNotification {
   title: string;
@@ -8,23 +9,10 @@ interface TenderNotification {
   link: string;
 }
 
-// Email configuration from environment variables
+// Configuration from environment variables
 const EMAIL_ENABLED = process.env.EMAIL_ENABLED === 'true';
-const SMTP_SERVER = process.env.SMTP_SERVER || 'smtp.office365.com';
-const SMTP_PORT = parseInt(process.env.SMTP_PORT || '587');
-const EMAIL_SENDER = process.env.EMAIL_SENDER || '';
-const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD || '';
+const RESEND_API_KEY = process.env.RESEND_API_KEY || '';
 const EMAIL_RECIPIENT = process.env.EMAIL_RECIPIENT || '';
-
-const transporter = nodemailer.createTransport({
-  host: SMTP_SERVER,
-  port: SMTP_PORT,
-  secure: SMTP_PORT === 465,
-  auth: {
-    user: EMAIL_SENDER,
-    pass: EMAIL_PASSWORD,
-  },
-});
 
 export async function sendNotificationEmail(tenders: TenderNotification[], totalScanned: number = 0): Promise<boolean> {
   if (!EMAIL_ENABLED) {
@@ -32,8 +20,8 @@ export async function sendNotificationEmail(tenders: TenderNotification[], total
     return false;
   }
 
-  if (!EMAIL_SENDER || !EMAIL_PASSWORD || !EMAIL_RECIPIENT) {
-    console.log('Configurare email incompletă - verifică variabilele de mediu');
+  if (!RESEND_API_KEY || !EMAIL_RECIPIENT) {
+    console.log('Configurare email incompletă - verifică RESEND_API_KEY și EMAIL_RECIPIENT');
     return false;
   }
 
@@ -48,13 +36,11 @@ export async function sendNotificationEmail(tenders: TenderNotification[], total
   const today = new Date().toISOString().split('T')[0];
   const hasResults = tenders.length > 0;
 
-  // Different content based on whether we found results or not
   const subject = hasResults
     ? `🎯 SEAP Alert: ${tenders.length} achiziții noi găsite!`
     : `📊 SEAP Raport Zilnic: 0 achiziții găsite pentru ${today}`;
 
   let htmlContent: string;
-  let textContent: string;
 
   if (hasResults) {
     htmlContent = `
@@ -63,7 +49,7 @@ export async function sendNotificationEmail(tenders: TenderNotification[], total
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
           .header { background: #2563eb; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; }
           table { width: 100%; border-collapse: collapse; margin-top: 20px; }
@@ -108,35 +94,14 @@ export async function sendNotificationEmail(tenders: TenderNotification[], total
       </body>
       </html>
     `;
-
-    textContent = `
-SEAP Monitor - Achiziții Noi Găsite!
-====================================
-
-S-au găsit ${tenders.length} achiziții noi!
-Data: ${now}
-Total scanate: ${totalScanned}
-
-${tenders.map(t => `
-• ${t.title}
-  Autoritate: ${t.authority}
-  Valoare: ${t.value} RON
-  Cuvânt cheie: ${t.matchedKeyword}
-  Link: ${t.link}
-`).join('\n')}
-
----
-Acest email a fost trimis automat de SEAP Monitor.
-    `;
   } else {
-    // No results - send status report
     htmlContent = `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="utf-8">
         <style>
-          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; }
+          body { font-family: Arial, sans-serif; line-height: 1.6; color: #333; margin: 0; padding: 0; }
           .header { background: #6b7280; color: white; padding: 20px; text-align: center; }
           .content { padding: 20px; text-align: center; }
           .stats { background: #f3f4f6; padding: 20px; border-radius: 8px; margin: 20px 0; }
@@ -164,35 +129,27 @@ Acest email a fost trimis automat de SEAP Monitor.
       </body>
       </html>
     `;
-
-    textContent = `
-SEAP Monitor - Raport Zilnic
-============================
-
-Data: ${now}
-Scanare pentru: ${today}
-
-Rezultate:
-- Total achiziții scanate: ${totalScanned}
-- Potriviri găsite: 0
-- Cuvinte cheie monitorizate: 35
-
-Nu s-au găsit achiziții noi care să corespundă criteriilor de căutare.
-Monitorizarea continuă automat mâine.
-
----
-Acest email a fost trimis automat de SEAP Monitor.
-    `;
   }
 
   try {
-    await transporter.sendMail({
-      from: EMAIL_SENDER,
-      to: EMAIL_RECIPIENT,
-      subject: subject,
-      text: textContent,
-      html: htmlContent,
+    const response = await fetch('https://api.resend.com/emails', {
+      method: 'POST',
+      headers: {
+        'Authorization': `Bearer ${RESEND_API_KEY}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        from: 'SEAP Monitor <onboarding@resend.dev>',
+        to: EMAIL_RECIPIENT,
+        subject: subject,
+        html: htmlContent
+      })
     });
+
+    if (!response.ok) {
+      const error = await response.text();
+      throw new Error(`Resend API error: ${error}`);
+    }
 
     console.log(`Email trimis cu succes către ${EMAIL_RECIPIENT}`);
     return true;
